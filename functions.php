@@ -1,6 +1,6 @@
 <?php
 function my_enqueue_scripts_frontpage() {
-    $theme_ver = "1.2.3.21";
+    $theme_ver = "1.3.1.24";
     $theme_dir = get_template_directory_uri();
 
     //载入css
@@ -17,6 +17,8 @@ function my_enqueue_scripts_frontpage() {
         wp_enqueue_script( 'ajax', $theme_dir.'/js/ajax.min.js', array('jquery'), $theme_ver, true);
     if( dopt('d_autospace_b') != '' )
         wp_enqueue_script( 'autospace', $theme_dir.'/js/autospace.min.js', array('jquery'), $theme_ver, true);
+    if( !dopt('d_defaultavatar_b') )
+        wp_enqueue_script( 'jdenticon', $theme_dir.'/js/jdenticon/jdenticon.min.js', false, $theme_ver, true);
 }
 add_action( 'wp_enqueue_scripts', 'my_enqueue_scripts_frontpage' );
 
@@ -36,7 +38,8 @@ add_action( 'wp_enqueue_scripts', 'echoJSvar' );
 function echoJSvar() {
     $data = array(
         'ajax_url' => admin_url('admin-ajax.php'),
-        'home' => home_url()
+        'home' => home_url(),
+        'theme_dir' => get_template_directory_uri()
     );
     //侧边栏飞行设置
     if( is_single() && dopt('d_sideroll_single_b') ){
@@ -175,15 +178,17 @@ register_deactivation_hook( __FILE__, 'disable_embeds_flush_rewrite_rules' );
 //禁用embeds功能 END
 
 
-// 结果只有一篇文章时自动跳转到文章
+// 搜索结果只有一篇文章时自动跳转到文章
 add_action('template_redirect', 'redirect_single_post');
 function redirect_single_post() {
     if (is_search()) {
         global $wp_query;
         if ($wp_query->post_count == 1 && $wp_query->max_num_pages == 1) {
-            wp_redirect( get_permalink( $wp_query->posts['0']->ID ) );
+            wp_redirect( get_permalink( $wp_query->posts['0']->ID) );
             exit;
-}	}   }
+        }
+    }
+}
 
 
 register_nav_menus(array('header-menu' => '顶部导航'));
@@ -353,24 +358,6 @@ function postformat_gallery(){
         }
 }
 
-/*
-function record_visitors(){
-    if (is_singular())
-    {
-      global $post;
-      $post_ID = $post->ID;
-      if($post_ID)
-      {
-          $post_views = (int)get_post_meta($post_ID, 'views', true);
-          if(!update_post_meta($post_ID, 'views', ($post_views+1)))
-          {
-            add_post_meta($post_ID, 'views', 1, true);
-          }
-      }
-    }
-}
-add_action('wp_head', 'record_visitors'); */
-
 //打印访问量
 function mzw_post_views($after=''){
   global $post;
@@ -408,17 +395,18 @@ function mzw_like() {
     $id = $_POST["um_id"];
     $action = $_POST["um_action"];
     if ( $action == 'ding'){
-    $mzw_raters = get_post_meta($id,'mzw_ding',true);
-    $expire = time() + 99999999;
-    $domain = ($_SERVER['HTTP_HOST'] != 'localhost') ? $_SERVER['HTTP_HOST'] : false; // make cookies work with localhost
-    setcookie('mzw_ding_'.$id,$id,$expire,'/',$domain,false);
-    if (!$mzw_raters || !is_numeric($mzw_raters)) {
-        update_post_meta($id, 'mzw_ding', 1);
-    }
-    else {
+        $mzw_raters = get_post_meta($id,'mzw_ding',true);
+        $expire = time() + 99999999;
+        // make cookies work with localhost
+        $domain = ($_SERVER['HTTP_HOST'] != 'localhost') ? $_SERVER['HTTP_HOST'] : false;
+        setcookie('mzw_ding_'.$id,$id,$expire,'/',$domain,false);
+        if (!$mzw_raters || !is_numeric($mzw_raters)) {
+            update_post_meta($id, 'mzw_ding', 1);
+        }
+        else {
             update_post_meta($id, 'mzw_ding', ($mzw_raters + 1));
         }
-    echo get_post_meta($id,'mzw_ding',true);
+        echo get_post_meta($id,'mzw_ding',true);
     }
     die;
 }
@@ -429,12 +417,15 @@ add_theme_support( 'post-thumbnails' );
 
 function post_thumbnail( $width = 180,$height = 180 ,$flag = true){
     global $post;
+	  $template_url = esc_url( get_template_directory_uri() );
+
     if( has_post_thumbnail() ){
         $timthumb_src = wp_get_attachment_image_src(get_post_thumbnail_id($post->ID),'full');
+
         if($flag) {
-            $post_timthumb = '<a href="'.get_permalink().'"><img src="'.get_bloginfo("template_url").'/timthumb.php?src='.$timthumb_src[0].'&amp;h='.$height.'&amp;w='.$width.'&amp;zc=1" alt="'.$post->post_title.'" title="'.get_the_title().'"/></a>';
+            $post_timthumb = '<a href="'.get_permalink().'"><img src="'.$template_url.'/timthumb.php?src='.$timthumb_src[0].'&amp;h='.$height.'&amp;w='.$width.'&amp;zc=1" alt="'.$post->post_title.'" title="'.get_the_title().'"/></a>';
         } else {
-            $post_timthumb = '<img src="'.get_bloginfo("template_url").'/timthumb.php?src='.$timthumb_src[0].'&amp;h='.$height.'&amp;w='.$width.'&amp;zc=1" alt="'.$post->post_title.'" title="'.get_the_title().'"/>';
+            $post_timthumb = '<img src="'.$template_url.'/timthumb.php?src='.$timthumb_src[0].'&amp;h='.$height.'&amp;w='.$width.'&amp;zc=1" alt="'.$post->post_title.'" title="'.get_the_title().'"/>';
         }
         return $post_timthumb;
     } else {
@@ -443,15 +434,15 @@ function post_thumbnail( $width = 180,$height = 180 ,$flag = true){
         $n = count($strResult[1]);
         if($n > 0){
             if($flag) {
-                return '<a href="'.get_permalink().'"><img src="'.get_bloginfo("template_url").'/timthumb.php?w='.$width.'&amp;h='.$height.'&amp;src='.$strResult[1][0].'" title="'.get_the_title().'" alt="'.get_the_title().'"/></a>';
+                return '<a href="'.get_permalink().'"><img src="'.$template_url.'/timthumb.php?w='.$width.'&amp;h='.$height.'&amp;src='.$strResult[1][0].'" title="'.get_the_title().'" alt="'.get_the_title().'"/></a>';
             } else {
-                return '<img src="'.get_bloginfo("template_url").'/timthumb.php?w='.$width.'&amp;h='.$height.'&amp;src='.$strResult[1][0].'" title="'.get_the_title().'" alt="'.get_the_title().'"/>';
+                return '<img src="'.$template_url.'/timthumb.php?w='.$width.'&amp;h='.$height.'&amp;src='.$strResult[1][0].'" title="'.get_the_title().'" alt="'.get_the_title().'"/>';
             }
         } else {
             if($flag) {
-                return '<a href="'.get_permalink().'"><img class="rounded" src="'.get_bloginfo('template_url').'/images/random/'.rand(1,7).'.jpg" title="'.get_the_title().'" alt="'.get_the_title().'"/></a>';
+                return '<a href="'.get_permalink().'"><img class="rounded" src="'.$template_url.'/images/random/'.rand(1,7).'.jpg" title="'.get_the_title().'" alt="'.get_the_title().'"/></a>';
             } else {
-                return '<img class="rounded" src="'.get_bloginfo('template_url').'/images/random/'.rand(1,7).'.jpg" title="'.get_the_title().'" alt="'.get_the_title().'" width="'.$width.'" height="'.$height.'"/>';
+                return '<img class="rounded" src="'.$template_url.'/images/random/'.rand(1,7).'.jpg" title="'.get_the_title().'" alt="'.get_the_title().'" width="'.$width.'" height="'.$height.'"/>';
             }
         }
     }
@@ -462,11 +453,7 @@ function post_thumbnail( $width = 180,$height = 180 ,$flag = true){
 */
 function get_random_avatar($comment, $size=40) {
     $comment_writer = $comment->comment_author;
-    if (strtoupper($comment_writer) == "MOSHEL" || $comment_writer == "Mσѕнєℓ") {
-        //custom for hzy.pw
-        $rnd_src = dopt('d_myavatar');
-    }
-    else if( $comment->comment_author_email && $comment->comment_author_email == get_the_author_email() ) {
+    if( $comment->comment_author_email && $comment->comment_author_email == get_the_author_meta('email') ) {
         //writer's reply
         if(dopt('d_myavatar') != '')
             $rnd_src = dopt('d_myavatar');
@@ -476,8 +463,8 @@ function get_random_avatar($comment, $size=40) {
     else if ($comment->comment_type == "pingback")
         $rnd_src = get_template_directory_uri().'/images/robot.jpg';
     else { //normal comments use svg
-        $rnd_src = "https://api.hzy.pw/avatar/v1/$size/$comment_writer";
-        return "<embed src='$rnd_src' class='avatar avatar-$size photo' width='$size' height='$size' type='image/svg+xml'/>";
+        $userHash = sha1($comment_writer);
+        return "<svg class='avatar avatar-$size photo' width='$size' height='$size' data-jdenticon-hash='$userHash'></svg>";
     }
 
     return "<img src='$rnd_src' class='avatar avatar-$size photo' height='$size' width='$size'>";
@@ -700,83 +687,67 @@ function specs_getfirstchar($s0){
     if($asc >= -11055 and $asc <= -10247) return "Z";
     return null;
 }
-function specs_pinyin($zh){
-    $ret = "";
-    $s1 = iconv("UTF-8","gb2312", $zh);
-    $s2 = iconv("gb2312","UTF-8", $s1);
-    if($s2 == $zh){$zh = $s1;}
-    $s1 = substr($zh,$i,1);
-    $p = ord($s1);
-    if($p > 160){
-        $s2 = substr($zh,$i++,2);
-        $ret .= specs_getfirstchar($s2);
-    }else{
-        $ret .= $s1;
-    }
-    return strtoupper($ret);
-}
 
 function specs_show_tags() {
-    //if(!$output = get_option('specs_tags_list')){
-        $categories = get_terms( 'post_tag', array(
-            'orderby'    => 'count',
-            'hide_empty' => 1
-         ) );
-        foreach($categories as $v){
-            for($i = 65; $i <= 90; $i++){
-                if(specs_pinyin($v->name) == chr($i)){
-                    $r[chr($i)][] = $v;
-                }
+    $categories = get_terms( 'post_tag', array(
+        'orderby'    => 'count',
+        'hide_empty' => 1
+     ) );
+
+    $r = [];
+	  for($i = 65; $i <= 90; $i++)
+		    $r[chr($i)] = [];
+	  $r['#'] = [];
+
+    foreach($categories as $v){
+        $i = specs_getfirstchar($v->name);
+        if( ($i>="A" && $i<="Z") )
+	          $r[$i][] = $v;
+        else
+	          $r['#'][] = $v;
+    }
+
+    $output = "<ul id='tag-letter'>";
+    for($i=65; $i<=90; $i++){
+        $tagi = $r[chr($i)];
+        if( sizeof($tagi) )
+            $output .= "<li><a href='#".chr($i)."'>".chr($i)."</a></li>";
+        else
+            $output .= "<li><a class='none' href='javascript:;'>".chr($i)."</a></li>";
+    }
+
+    $tagi = $r['#'];
+    if(sizeof($tagi)){
+        $output .= "<li><a href='#other'>#</a></li>";
+    }else{
+        $output .= "<li><a class='none' href='javascript:;'>#</a></li>";
+    }
+
+    $output .= "</ul>";
+    $output .= "<ul id='all-tags'>";
+    for($i=65;$i<=90;$i++){
+        $tagi = $r[chr($i)];
+        if(sizeof($tagi)){
+            $output .= "<li id='".chr($i)."'><h4 class='tag-name'>".chr($i)."</h4><div class='tag-list'>";
+            foreach($tagi as $tag){
+                $output .= "<a href='".get_tag_link($tag->term_id)."'>".$tag->name."<span class='number'>(".specs_post_count_by_tag($tag->term_id).")</span></a>";
             }
-            for($i=48;$i<=57;$i++){
-                if(specs_pinyin($v->name) == chr($i)){
-                    $r[chr($i)][] = $v;
-                }
-            }
+            $output .= '</div>';
         }
-        ksort($r);
-        $output = "<ul id='tag-letter'>";
-        for($i=65;$i<=90;$i++){
-            $tagi = $r[chr($i)];
-            if(is_array($tagi)){
-                $output .= "<li><a href='#".chr($i)."'>".chr($i)."</a></li>";
-            }else{
-                $output .= "<li><a class='none' href='javascript:;'>".chr($i)."</a></li>";
-            }
+    }
+
+    $tagi = $r['#'];
+    if(sizeof($tagi)){
+        $output .= "<li id='other'><h4 class='tag-name'>#</h4><div class='tag-list'>";
+        foreach($tagi as $tag){
+            $output .= "<a href='".get_tag_link($tag->term_id)."'>".$tag->name."<span class='number'>(".specs_post_count_by_tag($tag->term_id).")</span></a>";
         }
-        for($i=48;$i<=57;$i++){
-            $tagi = $r[chr($i)];
-            if(is_array($tagi)){
-                $output .= "<li><a href='#".chr($i)."'>".chr($i)."</a></li>";
-            }else{
-                $output .= "<li><a class='none' href='javascript:;'>".chr($i)."</a></li>";
-            }
-        }
-        $output .= "</ul>";
-        $output .= "<ul id='all-tags'>";
-        for($i=65;$i<=90;$i++){
-            $tagi = $r[chr($i)];
-            if(is_array($tagi)){
-                $output .= "<li id='".chr($i)."'><h4 class='tag-name'>".chr($i)."</h4><div class='tag-list'>";
-                foreach($tagi as $tag){
-                    $output .= "<a href='".get_tag_link($tag->term_id)."'>".$tag->name."<span class='number'>(".specs_post_count_by_tag($tag->term_id).")</span></a>";
-                }
-                $output .= '</div>';
-            }
-        }
-        for($i=48;$i<=57;$i++){
-            $tagi = $r[chr($i)];
-            if(is_array($tagi)){
-                $output .= "<li id='".chr($i)."'><h4 class='tag-name'>".chr($i)."</h4><div class='tag-list'>";
-                foreach($tagi as $tag){
-                    $output .= "<a href='".get_tag_link($tag->term_id)."'>".$tag->name."<span class='number'>(".specs_post_count_by_tag($tag->term_id).")</span></a>";
-                }
-                $output .= '</div>';
-            }
-        }
-        $output .= "</ul>";
-        update_option('specs_tags_list', $output);
-    //}
+        $output .= '</div>';
+    }
+
+    $output .= "</ul>";
+    update_option('specs_tags_list', $output);
+
     echo $output;
 }
 
@@ -813,7 +784,7 @@ function comment_mail_notify($comment_id) {
     <p><strong>' . trim($comment->comment_author) . ' 给你的回复是:</strong><br />'
     . trim($comment->comment_content) . '<br /></p>
     <p>你可以点击此链接 <a href="' . htmlspecialchars(get_comment_link($parent_id)) . '">查看完整内容</a></p><br />
-    <p>欢迎再次来访<a href="' . get_option('home') . '">' . get_option('blogname') . '</a></p>
+    <p>欢迎再次来访<a href="' . home_url() . '">' . get_option('blogname') . '</a></p>
     <p>(此邮件为系统自动发送，请勿直接回复.)</p>
     </div>';
     $from = "From: \"" . get_option('blogname') . "\" <$wp_email>";
@@ -837,7 +808,6 @@ function dimox_breadcrumbs() {
   if ( !is_home() && !is_front_page() || is_paged() ) {
     echo '<div id="crumbs">';
     global $post;
-    $home = get_bloginfo('url');
     echo '' . $name . ' ' . $delimiter . ' ';
     if ( is_category() ) {
       global $wp_query;
